@@ -184,7 +184,7 @@ export default function OhuhuPaletteGenerator() {
         axis={isMobile ? 'y' : 'x'}
         values={palette}
         onReorder={setPalette}
-        className="flex-1 flex flex-col sm:flex-row p-2 sm:p-4 gap-2 sm:gap-4 overflow-hidden w-full max-w-[2400px] mx-auto m-0 outline-none"
+        className="flex-1 flex flex-col sm:flex-row overflow-hidden w-full outline-none"
       >
         <AnimatePresence mode="popLayout">
           {palette.map((color) => {
@@ -200,10 +200,10 @@ export default function OhuhuPaletteGenerator() {
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.8 }}
                 transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                className="relative flex-1 min-h-[0px] min-w-[0px] group rounded-xl sm:rounded-2xl overflow-hidden flex flex-col cursor-grab active:cursor-grabbing w-full h-full list-none"
+                className="relative flex-1 min-h-[0px] min-w-[0px] group overflow-hidden flex flex-col cursor-grab active:cursor-grabbing w-full h-full list-none"
                 style={{ backgroundColor: color.marker.hex }}
               >
-                <div className="w-full h-full p-3 sm:p-6 flex flex-row sm:flex-col justify-between sm:justify-end items-center sm:items-start relative pointer-events-none">
+                <div className="w-full h-full p-4 sm:p-8 flex flex-row sm:flex-col justify-between sm:justify-end items-center sm:items-start relative pointer-events-none">
 
                   {/* Color Info */}
                   <div className="flex flex-col items-start min-w-0 flex-1 sm:w-auto sm:mt-auto pointer-events-auto">
