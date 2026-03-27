@@ -16,7 +16,7 @@ export function Header() {
             color: 'transparent'
           }}
         >
-          Palettor
+          Markpalette
         </span>
       </div>
     </header>

@@ -46,28 +46,35 @@ const filterMarkersByStyle = (markers: AnyMarker[], style: StyleType): AnyMarker
     if (marker.hex === '#ffffff' || marker.hex === '#000000') return false;
 
     const color = chroma(marker.hex);
-    const hsl = color.hsl();
-    const h = isNaN(hsl[0]) ? 0 : hsl[0];
-    const s = hsl[1];
-    const l = hsl[2];
+    // OKLCH: L = perceptual lightness [0–1], C = chroma/colorfulness [0–~0.37], H = hue [0–360]
+    const [L, C, H] = color.oklch();
+    const h = isNaN(H) ? 0 : H;
 
     switch (style) {
       case 'pastel':
-        return l > 0.75 && s > 0.2 && s < 0.8;
+        // Soft, light colors: high lightness, low-to-moderate chroma
+        return L > 0.82 && C > 0.03 && C < 0.14;
       case 'warm':
-        return (h >= 0 && h <= 60) || (h >= 300 && h <= 360);
+        // Reds, oranges, yellows, and red-purples (wraps around 360)
+        return (h >= 0 && h <= 60) || (h >= 330 && h <= 360);
       case 'neon':
-        return s > 0.8 && l > 0.4 && l < 0.7;
+        // Vivid, bright: very high chroma, moderate-high lightness
+        return C > 0.2 && L > 0.5 && L < 0.85;
       case 'vintage':
-        return s < 0.4 && l > 0.3 && l < 0.7;
+        // Muted, desaturated mid-tones: low chroma, mid lightness
+        return C < 0.08 && L > 0.35 && L < 0.72;
       case 'summer':
-        return s > 0.6 && l > 0.5 && (h > 30 && h < 240);
+        // Saturated bright warm-to-cool hues, high lightness
+        return C > 0.12 && L > 0.55 && (h > 20 && h < 220);
       case 'winter':
-        return l > 0.8 || l < 0.3 || (h > 180 && h < 280 && s < 0.5);
+        // Very light, very dark, or cool desaturated colors
+        return L > 0.88 || L < 0.28 || (h > 185 && h < 290 && C < 0.08);
       case 'cold':
-        return h >= 150 && h <= 300;
+        // Greens, teals, blues, violets
+        return h >= 140 && h <= 310;
       case 'autumn':
-        return (h >= 0 && h <= 50) && l < 0.6 && s > 0.3;
+        // Warm earthy hues (oranges, browns, ambers): warm hues, mid lightness, moderate chroma
+        return (h >= 15 && h <= 65) && L < 0.68 && C > 0.05;
       case 'All style':
         return true;
       default:
@@ -218,7 +225,7 @@ export default function OhuhuPaletteGenerator() {
                       </span>
                     </button>
 
-                    <div className={`font-display font-bold text-lg sm:text-3xl tracking-tight leading-none truncate w-full ${textColor} mt-0.5 sm:mt-1`}>
+                    <div className={`font-display font-bold text-base sm:text-2xl tracking-tight leading-none truncate w-full ${textColor} mt-0.5 sm:mt-1`}>
                       {'newName' in color.marker
                         ? (codeType === 'new' ? color.marker.newName : (color.marker as any).oldName)
                         : color.marker.code}
