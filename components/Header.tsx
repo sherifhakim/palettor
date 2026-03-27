@@ -5,7 +5,7 @@ export function Header() {
     <header className="w-full shrink-0 bg-white/90 backdrop-blur-xl border-b border-zinc-200 relative z-50">
       <div className="max-w-[2400px] mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center">
         <span
-          className="text-3xl sm:text-4xl tracking-tight"
+          className="text-2xl sm:text-3xl tracking-tight font-bold"
           style={{ 
             fontFamily: 'var(--font-fredoka, Fredoka, sans-serif)', 
             fontWeight: 700,
@@ -16,7 +16,7 @@ export function Header() {
             color: 'transparent'
           }}
         >
-          Markpalette
+          MarkPalette
         </span>
       </div>
     </header>

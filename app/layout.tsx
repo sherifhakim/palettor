@@ -8,7 +8,7 @@ const space = Space_Grotesk({ subsets: ['latin'], variable: '--font-display' });
 const fredoka = Fredoka({ subsets: ['latin'], variable: '--font-fredoka' });
 
 export const metadata: Metadata = {
-  title: 'Palettor',
+  title: 'MarkPalette',
   description: 'Generate beautiful color palettes',
 };
 
