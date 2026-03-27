@@ -76,6 +76,92 @@ const filterMarkersByStyle = (markers: AnyMarker[], style: StyleType): AnyMarker
   });
 };
 
+const applyColorHarmony = (markers: AnyMarker[], style: StyleType, targetSize: number): AnyMarker[] => {
+  if (markers.length === 0 || style === 'All style') return markers;
+
+  // Pick a random base color from the filtered markers
+  const baseMarker = markers[Math.floor(Math.random() * markers.length)];
+  const baseColor = chroma(baseMarker.hex);
+  const baseHue = baseColor.hsl()[0] || 0;
+
+  const selectByHarmony = (harmonyType: 'analogous' | 'complementary' | 'triadic' | 'monochromatic'): AnyMarker[] => {
+    switch (harmonyType) {
+      case 'analogous': {
+        // Colors within ±30 degrees of base hue
+        return markers.filter(m => {
+          const h = chroma(m.hex).hsl()[0] || 0;
+          const diff = Math.min(Math.abs(h - baseHue), 360 - Math.abs(h - baseHue));
+          return diff <= 30;
+        });
+      }
+      case 'complementary': {
+        // Base hue and opposite (±30 degrees tolerance)
+        const oppositeHue = (baseHue + 180) % 360;
+        return markers.filter(m => {
+          const h = chroma(m.hex).hsl()[0] || 0;
+          const diffBase = Math.min(Math.abs(h - baseHue), 360 - Math.abs(h - baseHue));
+          const diffOpposite = Math.min(Math.abs(h - oppositeHue), 360 - Math.abs(h - oppositeHue));
+          return diffBase <= 30 || diffOpposite <= 30;
+        });
+      }
+      case 'triadic': {
+        // Three hues 120 degrees apart (±30 degrees tolerance)
+        const hue2 = (baseHue + 120) % 360;
+        const hue3 = (baseHue + 240) % 360;
+        return markers.filter(m => {
+          const h = chroma(m.hex).hsl()[0] || 0;
+          const diff1 = Math.min(Math.abs(h - baseHue), 360 - Math.abs(h - baseHue));
+          const diff2 = Math.min(Math.abs(h - hue2), 360 - Math.abs(h - hue2));
+          const diff3 = Math.min(Math.abs(h - hue3), 360 - Math.abs(h - hue3));
+          return diff1 <= 30 || diff2 <= 30 || diff3 <= 30;
+        });
+      }
+      case 'monochromatic': {
+        // Same hue (±15 degrees), varying lightness/saturation
+        return markers.filter(m => {
+          const h = chroma(m.hex).hsl()[0] || 0;
+          const diff = Math.min(Math.abs(h - baseHue), 360 - Math.abs(h - baseHue));
+          return diff <= 15;
+        });
+      }
+    }
+  };
+
+  // Apply harmony based on style
+  let harmonizedMarkers: AnyMarker[] = [];
+  
+  switch (style) {
+    case 'pastel':
+    case 'warm':
+    case 'summer':
+    case 'cold':
+    case 'autumn':
+      harmonizedMarkers = selectByHarmony('analogous');
+      break;
+    case 'neon':
+      // Mix triadic and complementary
+      harmonizedMarkers = Math.random() > 0.5 
+        ? selectByHarmony('triadic') 
+        : selectByHarmony('complementary');
+      break;
+    case 'vintage':
+      // Mix monochromatic and analogous
+      harmonizedMarkers = Math.random() > 0.5 
+        ? selectByHarmony('monochromatic') 
+        : selectByHarmony('analogous');
+      break;
+    case 'winter':
+      // Mix monochromatic and complementary
+      harmonizedMarkers = Math.random() > 0.5 
+        ? selectByHarmony('monochromatic') 
+        : selectByHarmony('complementary');
+      break;
+  }
+
+  // If harmony filtering resulted in too few colors, fall back to original filtered set
+  return harmonizedMarkers.length >= targetSize ? harmonizedMarkers : markers;
+};
+
 export default function OhuhuPaletteGenerator() {
   const [palette, setPalette] = useState<PaletteColor[]>([]);
   const [size, setSize] = useState(5);
@@ -103,6 +189,17 @@ export default function OhuhuPaletteGenerator() {
     const brandData = BRANDS[currentBrand] || BRANDS.ohuhu;
     let availableMarkers = filterMarkersByStyle(brandData.markers, currentStyle);
 
+    if (availableMarkers.length < currentSize) {
+      availableMarkers = brandData.markers;
+    }
+
+    // Apply color harmony to the filtered markers
+    availableMarkers = applyColorHarmony(availableMarkers, currentStyle, currentSize);
+
+    // Fallback if harmony filtering was too aggressive
+    if (availableMarkers.length < currentSize) {
+      availableMarkers = filterMarkersByStyle(brandData.markers, currentStyle);
+    }
     if (availableMarkers.length < currentSize) {
       availableMarkers = brandData.markers;
     }
