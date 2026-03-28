@@ -84,7 +84,7 @@ const applyColorHarmony = (markers: AnyMarker[], style: StyleType, targetSize: n
   const baseColor = chroma(baseMarker.hex);
   const baseHue = baseColor.hsl()[0] || 0;
 
-  const selectByHarmony = (harmonyType: 'analogous' | 'complementary' | 'triadic' | 'monochromatic'): AnyMarker[] => {
+  const selectByHarmony = (harmonyType: 'analogous' | 'complementary' | 'triadic' | 'monochromatic' | 'split-complementary' | 'square' | 'tetradic' | 'compound' | 'shades' | 'accented-analogous'): AnyMarker[] => {
     switch (harmonyType) {
       case 'analogous': {
         // Colors within ±30 degrees of base hue
@@ -124,6 +124,77 @@ const applyColorHarmony = (markers: AnyMarker[], style: StyleType, targetSize: n
           return diff <= 15;
         });
       }
+      case 'split-complementary': {
+        // Base hue and two hues adjacent to its complement (±30 degrees tolerance)
+        const complementHue = (baseHue + 180) % 360;
+        const splitHue1 = (complementHue - 30 + 360) % 360;
+        const splitHue2 = (complementHue + 30) % 360;
+        return markers.filter(m => {
+          const h = chroma(m.hex).hsl()[0] || 0;
+          const diffBase = Math.min(Math.abs(h - baseHue), 360 - Math.abs(h - baseHue));
+          const diffSplit1 = Math.min(Math.abs(h - splitHue1), 360 - Math.abs(h - splitHue1));
+          const diffSplit2 = Math.min(Math.abs(h - splitHue2), 360 - Math.abs(h - splitHue2));
+          return diffBase <= 30 || diffSplit1 <= 30 || diffSplit2 <= 30;
+        });
+      }
+      case 'square': {
+        // Four hues 90 degrees apart (±30 degrees tolerance)
+        const hue2 = (baseHue + 90) % 360;
+        const hue3 = (baseHue + 180) % 360;
+        const hue4 = (baseHue + 270) % 360;
+        return markers.filter(m => {
+          const h = chroma(m.hex).hsl()[0] || 0;
+          const diff1 = Math.min(Math.abs(h - baseHue), 360 - Math.abs(h - baseHue));
+          const diff2 = Math.min(Math.abs(h - hue2), 360 - Math.abs(h - hue2));
+          const diff3 = Math.min(Math.abs(h - hue3), 360 - Math.abs(h - hue3));
+          const diff4 = Math.min(Math.abs(h - hue4), 360 - Math.abs(h - hue4));
+          return diff1 <= 30 || diff2 <= 30 || diff3 <= 30 || diff4 <= 30;
+        });
+      }
+      case 'tetradic': {
+        // Two complementary pairs forming a rectangle (±30 degrees tolerance)
+        const hue2 = (baseHue + 60) % 360;
+        const hue3 = (baseHue + 180) % 360;
+        const hue4 = (baseHue + 240) % 360;
+        return markers.filter(m => {
+          const h = chroma(m.hex).hsl()[0] || 0;
+          const diff1 = Math.min(Math.abs(h - baseHue), 360 - Math.abs(h - baseHue));
+          const diff2 = Math.min(Math.abs(h - hue2), 360 - Math.abs(h - hue2));
+          const diff3 = Math.min(Math.abs(h - hue3), 360 - Math.abs(h - hue3));
+          const diff4 = Math.min(Math.abs(h - hue4), 360 - Math.abs(h - hue4));
+          return diff1 <= 30 || diff2 <= 30 || diff3 <= 30 || diff4 <= 30;
+        });
+      }
+      case 'compound': {
+        // Base hue and near-complementary colors (150-210 degrees away, ±30 degrees tolerance)
+        const nearComplement1 = (baseHue + 150) % 360;
+        const nearComplement2 = (baseHue + 210) % 360;
+        return markers.filter(m => {
+          const h = chroma(m.hex).hsl()[0] || 0;
+          const diffBase = Math.min(Math.abs(h - baseHue), 360 - Math.abs(h - baseHue));
+          const diffNear1 = Math.min(Math.abs(h - nearComplement1), 360 - Math.abs(h - nearComplement1));
+          const diffNear2 = Math.min(Math.abs(h - nearComplement2), 360 - Math.abs(h - nearComplement2));
+          return diffBase <= 30 || diffNear1 <= 30 || diffNear2 <= 30;
+        });
+      }
+      case 'shades': {
+        // Same hue (±10 degrees), but focus on varying lightness only
+        return markers.filter(m => {
+          const h = chroma(m.hex).hsl()[0] || 0;
+          const diff = Math.min(Math.abs(h - baseHue), 360 - Math.abs(h - baseHue));
+          return diff <= 10;
+        });
+      }
+      case 'accented-analogous': {
+        // Analogous colors (±30 degrees) + complementary accent (±30 degrees tolerance)
+        const oppositeHue = (baseHue + 180) % 360;
+        return markers.filter(m => {
+          const h = chroma(m.hex).hsl()[0] || 0;
+          const diffAnalogous = Math.min(Math.abs(h - baseHue), 360 - Math.abs(h - baseHue));
+          const diffComplement = Math.min(Math.abs(h - oppositeHue), 360 - Math.abs(h - oppositeHue));
+          return diffAnalogous <= 30 || diffComplement <= 30;
+        });
+      }
     }
   };
 
@@ -131,31 +202,66 @@ const applyColorHarmony = (markers: AnyMarker[], style: StyleType, targetSize: n
   let harmonizedMarkers: AnyMarker[] = [];
   
   switch (style) {
-    case 'pastel':
-    case 'warm':
+    case 'pastel': {
+      // Pastel works well with shades (tints) and accented-analogous for soft variety
+      const pastelHarmonies: ('shades' | 'analogous' | 'accented-analogous')[] = 
+        ['shades', 'analogous', 'accented-analogous'];
+      const randomHarmony = pastelHarmonies[Math.floor(Math.random() * pastelHarmonies.length)];
+      harmonizedMarkers = selectByHarmony(randomHarmony);
+      break;
+    }
+    case 'warm': {
+      // Warm benefits from accented-analogous for cohesive warmth with a pop
+      const warmHarmonies: ('analogous' | 'accented-analogous')[] = 
+        ['analogous', 'accented-analogous'];
+      const randomHarmony = warmHarmonies[Math.floor(Math.random() * warmHarmonies.length)];
+      harmonizedMarkers = selectByHarmony(randomHarmony);
+      break;
+    }
+    case 'cold': {
+      // Cold benefits from accented-analogous for cohesive coolness with contrast
+      const coldHarmonies: ('analogous' | 'accented-analogous')[] = 
+        ['analogous', 'accented-analogous'];
+      const randomHarmony = coldHarmonies[Math.floor(Math.random() * coldHarmonies.length)];
+      harmonizedMarkers = selectByHarmony(randomHarmony);
+      break;
+    }
+    case 'autumn': {
+      // Autumn works well with compound for subtle tension and shades for depth
+      const autumnHarmonies: ('analogous' | 'compound' | 'shades')[] = 
+        ['analogous', 'compound', 'shades'];
+      const randomHarmony = autumnHarmonies[Math.floor(Math.random() * autumnHarmonies.length)];
+      harmonizedMarkers = selectByHarmony(randomHarmony);
+      break;
+    }
+    case 'neon': {
+      // Neon thrives on bold contrasts - add tetradic for maximum variety
+      const neonHarmonies: ('triadic' | 'complementary' | 'tetradic')[] = 
+        ['triadic', 'complementary', 'tetradic'];
+      const randomHarmony = neonHarmonies[Math.floor(Math.random() * neonHarmonies.length)];
+      harmonizedMarkers = selectByHarmony(randomHarmony);
+      break;
+    }
+    case 'vintage': {
+      // Vintage: monochromatic, analogous, split-complementary, triadic, compound, shades
+      const vintageHarmonies: ('monochromatic' | 'analogous' | 'split-complementary' | 'triadic' | 'compound' | 'shades')[] = 
+        ['monochromatic', 'analogous', 'split-complementary', 'triadic', 'compound', 'shades'];
+      const randomHarmony = vintageHarmonies[Math.floor(Math.random() * vintageHarmonies.length)];
+      harmonizedMarkers = selectByHarmony(randomHarmony);
+      break;
+    }
     case 'summer':
-    case 'cold':
-    case 'autumn':
-      harmonizedMarkers = selectByHarmony('analogous');
+      // Use square harmony for vibrant, balanced summer palettes
+      harmonizedMarkers = selectByHarmony('square');
       break;
-    case 'neon':
-      // Mix triadic and complementary
-      harmonizedMarkers = Math.random() > 0.5 
-        ? selectByHarmony('triadic') 
-        : selectByHarmony('complementary');
+    case 'winter': {
+      // Winter: monochromatic, complementary, split-complementary
+      const winterHarmonies: ('monochromatic' | 'complementary' | 'split-complementary')[] = 
+        ['monochromatic', 'complementary', 'split-complementary'];
+      const randomHarmony = winterHarmonies[Math.floor(Math.random() * winterHarmonies.length)];
+      harmonizedMarkers = selectByHarmony(randomHarmony);
       break;
-    case 'vintage':
-      // Mix monochromatic and analogous
-      harmonizedMarkers = Math.random() > 0.5 
-        ? selectByHarmony('monochromatic') 
-        : selectByHarmony('analogous');
-      break;
-    case 'winter':
-      // Mix monochromatic and complementary
-      harmonizedMarkers = Math.random() > 0.5 
-        ? selectByHarmony('monochromatic') 
-        : selectByHarmony('complementary');
-      break;
+    }
   }
 
   // If harmony filtering resulted in too few colors, fall back to original filtered set
