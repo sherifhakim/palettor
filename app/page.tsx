@@ -4,8 +4,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { ohuhuMarkers, MarkerData as OhuhuMarkerData } from '@/lib/ohuhu-markers';
 import { decotimeMarkers, MarkerData as DecotimeMarkerData } from '@/lib/decotime-markers';
 import { chenRuiMarkers, MarkerData as ChenRuiMarkerData } from '@/lib/chenRui-markers';
+import { generateHarmoniousPalette, HarmonyMethod, PaletteStyle } from '@/lib/color-harmony';
 import chroma from 'chroma-js';
-import { Plus, Minus, Lock, Unlock, Copy, Check, Palette, X, WandSparkles } from 'lucide-react';
+import { Plus, Minus, Copy, Check, Palette, X, WandSparkles, Lock, Unlock } from 'lucide-react';
 import { motion, AnimatePresence, Reorder } from 'motion/react';
 import {
   Select,
@@ -23,7 +24,6 @@ import {
 } from "@/components/ui/dialog";
 import { Header } from '@/components/Header';
 
-type StyleType = 'pastel' | 'warm' | 'neon' | 'vintage' | 'summer' | 'winter' | 'cold' | 'autumn' | 'All style';
 type CodeType = 'old' | 'new';
 
 type AnyMarker = OhuhuMarkerData | DecotimeMarkerData | ChenRuiMarkerData;
@@ -37,241 +37,15 @@ const BRANDS: Record<string, { label: string; markers: AnyMarker[]; hasCodes: bo
 interface PaletteColor {
   id: string;
   marker: AnyMarker;
-  locked: boolean;
   brandKey: string;
+  locked?: boolean;
 }
 
-const filterMarkersByStyle = (markers: AnyMarker[], style: StyleType): AnyMarker[] => {
-  return markers.filter(marker => {
-    if (marker.hex === '#ffffff' || marker.hex === '#000000') return false;
 
-    const color = chroma(marker.hex);
-    const hsl = color.hsl();
-    const h = isNaN(hsl[0]) ? 0 : hsl[0];
-    const s = hsl[1];
-    const l = hsl[2];
-
-    switch (style) {
-      case 'pastel':
-        return l > 0.75 && s > 0.2 && s < 0.8;
-      case 'warm':
-        return (h >= 0 && h <= 60) || (h >= 300 && h <= 360);
-      case 'neon':
-        return s > 0.8 && l > 0.4 && l < 0.7;
-      case 'vintage':
-        return s < 0.4 && l > 0.3 && l < 0.7;
-      case 'summer':
-        return s > 0.6 && l > 0.5 && (h > 30 && h < 240);
-      case 'winter':
-        return l > 0.8 || l < 0.3 || (h > 180 && h < 280 && s < 0.5);
-      case 'cold':
-        return h >= 150 && h <= 300;
-      case 'autumn':
-        return (h >= 0 && h <= 50) && l < 0.6 && s > 0.3;
-      case 'All style':
-        return true;
-      default:
-        return true;
-    }
-  });
-};
-
-const applyColorHarmony = (markers: AnyMarker[], style: StyleType, targetSize: number): AnyMarker[] => {
-  if (markers.length === 0 || style === 'All style') return markers;
-
-  // Pick a random base color from the filtered markers
-  const baseMarker = markers[Math.floor(Math.random() * markers.length)];
-  const baseColor = chroma(baseMarker.hex);
-  const baseHue = baseColor.hsl()[0] || 0;
-
-  const selectByHarmony = (harmonyType: 'analogous' | 'complementary' | 'triadic' | 'monochromatic' | 'split-complementary' | 'square' | 'tetradic' | 'compound' | 'shades' | 'accented-analogous'): AnyMarker[] => {
-    switch (harmonyType) {
-      case 'analogous': {
-        // Colors within ±30 degrees of base hue
-        return markers.filter(m => {
-          const h = chroma(m.hex).hsl()[0] || 0;
-          const diff = Math.min(Math.abs(h - baseHue), 360 - Math.abs(h - baseHue));
-          return diff <= 30;
-        });
-      }
-      case 'complementary': {
-        // Base hue and opposite (±30 degrees tolerance)
-        const oppositeHue = (baseHue + 180) % 360;
-        return markers.filter(m => {
-          const h = chroma(m.hex).hsl()[0] || 0;
-          const diffBase = Math.min(Math.abs(h - baseHue), 360 - Math.abs(h - baseHue));
-          const diffOpposite = Math.min(Math.abs(h - oppositeHue), 360 - Math.abs(h - oppositeHue));
-          return diffBase <= 30 || diffOpposite <= 30;
-        });
-      }
-      case 'triadic': {
-        // Three hues 120 degrees apart (±30 degrees tolerance)
-        const hue2 = (baseHue + 120) % 360;
-        const hue3 = (baseHue + 240) % 360;
-        return markers.filter(m => {
-          const h = chroma(m.hex).hsl()[0] || 0;
-          const diff1 = Math.min(Math.abs(h - baseHue), 360 - Math.abs(h - baseHue));
-          const diff2 = Math.min(Math.abs(h - hue2), 360 - Math.abs(h - hue2));
-          const diff3 = Math.min(Math.abs(h - hue3), 360 - Math.abs(h - hue3));
-          return diff1 <= 30 || diff2 <= 30 || diff3 <= 30;
-        });
-      }
-      case 'monochromatic': {
-        // Same hue (±15 degrees), varying lightness/saturation
-        return markers.filter(m => {
-          const h = chroma(m.hex).hsl()[0] || 0;
-          const diff = Math.min(Math.abs(h - baseHue), 360 - Math.abs(h - baseHue));
-          return diff <= 15;
-        });
-      }
-      case 'split-complementary': {
-        // Base hue and two hues adjacent to its complement (±30 degrees tolerance)
-        const complementHue = (baseHue + 180) % 360;
-        const splitHue1 = (complementHue - 30 + 360) % 360;
-        const splitHue2 = (complementHue + 30) % 360;
-        return markers.filter(m => {
-          const h = chroma(m.hex).hsl()[0] || 0;
-          const diffBase = Math.min(Math.abs(h - baseHue), 360 - Math.abs(h - baseHue));
-          const diffSplit1 = Math.min(Math.abs(h - splitHue1), 360 - Math.abs(h - splitHue1));
-          const diffSplit2 = Math.min(Math.abs(h - splitHue2), 360 - Math.abs(h - splitHue2));
-          return diffBase <= 30 || diffSplit1 <= 30 || diffSplit2 <= 30;
-        });
-      }
-      case 'square': {
-        // Four hues 90 degrees apart (±30 degrees tolerance)
-        const hue2 = (baseHue + 90) % 360;
-        const hue3 = (baseHue + 180) % 360;
-        const hue4 = (baseHue + 270) % 360;
-        return markers.filter(m => {
-          const h = chroma(m.hex).hsl()[0] || 0;
-          const diff1 = Math.min(Math.abs(h - baseHue), 360 - Math.abs(h - baseHue));
-          const diff2 = Math.min(Math.abs(h - hue2), 360 - Math.abs(h - hue2));
-          const diff3 = Math.min(Math.abs(h - hue3), 360 - Math.abs(h - hue3));
-          const diff4 = Math.min(Math.abs(h - hue4), 360 - Math.abs(h - hue4));
-          return diff1 <= 30 || diff2 <= 30 || diff3 <= 30 || diff4 <= 30;
-        });
-      }
-      case 'tetradic': {
-        // Two complementary pairs forming a rectangle (±30 degrees tolerance)
-        const hue2 = (baseHue + 60) % 360;
-        const hue3 = (baseHue + 180) % 360;
-        const hue4 = (baseHue + 240) % 360;
-        return markers.filter(m => {
-          const h = chroma(m.hex).hsl()[0] || 0;
-          const diff1 = Math.min(Math.abs(h - baseHue), 360 - Math.abs(h - baseHue));
-          const diff2 = Math.min(Math.abs(h - hue2), 360 - Math.abs(h - hue2));
-          const diff3 = Math.min(Math.abs(h - hue3), 360 - Math.abs(h - hue3));
-          const diff4 = Math.min(Math.abs(h - hue4), 360 - Math.abs(h - hue4));
-          return diff1 <= 30 || diff2 <= 30 || diff3 <= 30 || diff4 <= 30;
-        });
-      }
-      case 'compound': {
-        // Base hue and near-complementary colors (150-210 degrees away, ±30 degrees tolerance)
-        const nearComplement1 = (baseHue + 150) % 360;
-        const nearComplement2 = (baseHue + 210) % 360;
-        return markers.filter(m => {
-          const h = chroma(m.hex).hsl()[0] || 0;
-          const diffBase = Math.min(Math.abs(h - baseHue), 360 - Math.abs(h - baseHue));
-          const diffNear1 = Math.min(Math.abs(h - nearComplement1), 360 - Math.abs(h - nearComplement1));
-          const diffNear2 = Math.min(Math.abs(h - nearComplement2), 360 - Math.abs(h - nearComplement2));
-          return diffBase <= 30 || diffNear1 <= 30 || diffNear2 <= 30;
-        });
-      }
-      case 'shades': {
-        // Same hue (±10 degrees), but focus on varying lightness only
-        return markers.filter(m => {
-          const h = chroma(m.hex).hsl()[0] || 0;
-          const diff = Math.min(Math.abs(h - baseHue), 360 - Math.abs(h - baseHue));
-          return diff <= 10;
-        });
-      }
-      case 'accented-analogous': {
-        // Analogous colors (±30 degrees) + complementary accent (±30 degrees tolerance)
-        const oppositeHue = (baseHue + 180) % 360;
-        return markers.filter(m => {
-          const h = chroma(m.hex).hsl()[0] || 0;
-          const diffAnalogous = Math.min(Math.abs(h - baseHue), 360 - Math.abs(h - baseHue));
-          const diffComplement = Math.min(Math.abs(h - oppositeHue), 360 - Math.abs(h - oppositeHue));
-          return diffAnalogous <= 30 || diffComplement <= 30;
-        });
-      }
-    }
-  };
-
-  // Apply harmony based on style
-  let harmonizedMarkers: AnyMarker[] = [];
-  
-  switch (style) {
-    case 'pastel': {
-      // Pastel works well with shades (tints) and accented-analogous for soft variety
-      const pastelHarmonies: ('shades' | 'analogous' | 'accented-analogous')[] = 
-        ['shades', 'analogous', 'accented-analogous'];
-      const randomHarmony = pastelHarmonies[Math.floor(Math.random() * pastelHarmonies.length)];
-      harmonizedMarkers = selectByHarmony(randomHarmony);
-      break;
-    }
-    case 'warm': {
-      // Warm benefits from accented-analogous for cohesive warmth with a pop
-      const warmHarmonies: ('analogous' | 'accented-analogous')[] = 
-        ['analogous', 'accented-analogous'];
-      const randomHarmony = warmHarmonies[Math.floor(Math.random() * warmHarmonies.length)];
-      harmonizedMarkers = selectByHarmony(randomHarmony);
-      break;
-    }
-    case 'cold': {
-      // Cold benefits from accented-analogous for cohesive coolness with contrast
-      const coldHarmonies: ('analogous' | 'accented-analogous')[] = 
-        ['analogous', 'accented-analogous'];
-      const randomHarmony = coldHarmonies[Math.floor(Math.random() * coldHarmonies.length)];
-      harmonizedMarkers = selectByHarmony(randomHarmony);
-      break;
-    }
-    case 'autumn': {
-      // Autumn works well with compound for subtle tension and shades for depth
-      const autumnHarmonies: ('analogous' | 'compound' | 'shades')[] = 
-        ['analogous', 'compound', 'shades'];
-      const randomHarmony = autumnHarmonies[Math.floor(Math.random() * autumnHarmonies.length)];
-      harmonizedMarkers = selectByHarmony(randomHarmony);
-      break;
-    }
-    case 'neon': {
-      // Neon thrives on bold contrasts - add tetradic for maximum variety
-      const neonHarmonies: ('triadic' | 'complementary' | 'tetradic')[] = 
-        ['triadic', 'complementary', 'tetradic'];
-      const randomHarmony = neonHarmonies[Math.floor(Math.random() * neonHarmonies.length)];
-      harmonizedMarkers = selectByHarmony(randomHarmony);
-      break;
-    }
-    case 'vintage': {
-      // Vintage: monochromatic, analogous, split-complementary, triadic, compound, shades
-      const vintageHarmonies: ('monochromatic' | 'analogous' | 'split-complementary' | 'triadic' | 'compound' | 'shades')[] = 
-        ['monochromatic', 'analogous', 'split-complementary', 'triadic', 'compound', 'shades'];
-      const randomHarmony = vintageHarmonies[Math.floor(Math.random() * vintageHarmonies.length)];
-      harmonizedMarkers = selectByHarmony(randomHarmony);
-      break;
-    }
-    case 'summer':
-      // Use square harmony for vibrant, balanced summer palettes
-      harmonizedMarkers = selectByHarmony('square');
-      break;
-    case 'winter': {
-      // Winter: monochromatic, complementary, split-complementary
-      const winterHarmonies: ('monochromatic' | 'complementary' | 'split-complementary')[] = 
-        ['monochromatic', 'complementary', 'split-complementary'];
-      const randomHarmony = winterHarmonies[Math.floor(Math.random() * winterHarmonies.length)];
-      harmonizedMarkers = selectByHarmony(randomHarmony);
-      break;
-    }
-  }
-
-  // If harmony filtering resulted in too few colors, fall back to original filtered set
-  return harmonizedMarkers.length >= targetSize ? harmonizedMarkers : markers;
-};
 
 export default function OhuhuPaletteGenerator() {
   const [palette, setPalette] = useState<PaletteColor[]>([]);
   const [size, setSize] = useState(5);
-  const [style, setStyle] = useState<StyleType>('All style');
   const [brand, setBrand] = useState<string>('ohuhu');
   const [codeType, setCodeType] = useState<CodeType>('new');
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -281,6 +55,8 @@ export default function OhuhuPaletteGenerator() {
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   const [colorToEditId, setColorToEditId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [harmonyMethod, setHarmonyMethod] = useState<HarmonyMethod>('random');
+  const [paletteStyle, setPaletteStyle] = useState<PaletteStyle>('any');
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -291,77 +67,71 @@ export default function OhuhuPaletteGenerator() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  const generatePalette = useCallback((currentSize: number, currentStyle: StyleType, currentPalette: PaletteColor[], currentBrand: string, generateOnlyNew: boolean = false) => {
+  const generatePalette = useCallback((currentSize: number, currentPalette: PaletteColor[], currentBrand: string, generateOnlyNew: boolean = false, method?: HarmonyMethod, style?: PaletteStyle) => {
     const brandData = BRANDS[currentBrand] || BRANDS.ohuhu;
-    let availableMarkers = filterMarkersByStyle(brandData.markers, currentStyle);
 
-    if (availableMarkers.length < currentSize) {
-      availableMarkers = brandData.markers;
-    }
-
-    // Apply color harmony to the filtered markers
-    availableMarkers = applyColorHarmony(availableMarkers, currentStyle, currentSize);
-
-    // Fallback if harmony filtering was too aggressive
-    if (availableMarkers.length < currentSize) {
-      availableMarkers = filterMarkersByStyle(brandData.markers, currentStyle);
-    }
-    if (availableMarkers.length < currentSize) {
-      availableMarkers = brandData.markers;
-    }
-
-    let newPalette = [...currentPalette];
-
-    if (newPalette.length < currentSize) {
-      const toAdd = currentSize - newPalette.length;
+    // Adjust palette size if needed
+    let adjustedPalette = [...currentPalette];
+    if (adjustedPalette.length < currentSize) {
+      const toAdd = currentSize - adjustedPalette.length;
       for (let i = 0; i < toAdd; i++) {
-        newPalette.push({
+        adjustedPalette.push({
           id: Math.random().toString(36).substring(7),
           marker: brandData.markers[0],
-          locked: false,
-          brandKey: currentBrand
+          brandKey: currentBrand,
+          locked: false
         });
       }
-    } else if (newPalette.length > currentSize) {
-      newPalette = newPalette.slice(0, currentSize);
+    } else if (adjustedPalette.length > currentSize) {
+      adjustedPalette = adjustedPalette.slice(0, currentSize);
     }
 
-    const usedHexes = new Set(
-      newPalette
-        .filter((p, index) => p.locked || (generateOnlyNew && index < currentPalette.length))
-        .map(p => p.marker.hex)
-    );
-
-    const finalPalette = newPalette.map((item, index) => {
-      const isKept = item.locked || (generateOnlyNew && index < currentPalette.length);
-      if (isKept) return item;
-
-      let pool = availableMarkers.filter(m => !usedHexes.has(m.hex));
-      if (pool.length === 0) pool = availableMarkers;
-
-      const randomMarker = pool[Math.floor(Math.random() * pool.length)];
-      usedHexes.add(randomMarker.hex);
-
-      return { ...item, marker: randomMarker, brandKey: currentBrand };
-    });
-
-    setPalette(finalPalette);
-  }, []);
+    // If generateOnlyNew is true, keep existing colors and only generate new slots
+    if (generateOnlyNew) {
+      const usedHexes = new Set(adjustedPalette.map(p => p.marker.hex));
+      const finalPalette = adjustedPalette.map((item, index) => {
+        if (index < currentPalette.length) return item;
+        
+        let pool = brandData.markers.filter(m => !usedHexes.has(m.hex));
+        if (pool.length === 0) pool = brandData.markers;
+        
+        const randomMarker = pool[Math.floor(Math.random() * pool.length)];
+        usedHexes.add(randomMarker.hex);
+        
+        return { ...item, marker: randomMarker, brandKey: currentBrand, locked: false };
+      });
+      setPalette(finalPalette);
+    } else {
+      // Generate harmonious palette, preserving locked colors
+      const harmoniousPalette = generateHarmoniousPalette(
+        currentSize,
+        adjustedPalette,
+        brandData.markers,
+        currentBrand,
+        harmonyMethod,
+        method,
+        style ?? paletteStyle
+      );
+      setPalette(harmoniousPalette);
+    }
+  }, [harmonyMethod, paletteStyle]);
 
   useEffect(() => {
     if (isClient && palette.length === 0) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      generatePalette(size, style, [], brand);
+      generatePalette(size, [], brand);
     }
-  }, [isClient, size, style, brand, generatePalette, palette.length]);
+  }, [isClient, size, brand, generatePalette, palette.length]);
 
   const handleGenerate = () => {
-    generatePalette(size, style, palette, brand);
+    generatePalette(size, palette, brand);
   };
 
   const toggleLock = (id: string) => {
     setPalette(prev => prev.map(p => p.id === id ? { ...p, locked: !p.locked } : p));
   };
+
+
 
   const copyHex = (hex: string, id: string) => {
     navigator.clipboard.writeText(hex);
@@ -372,7 +142,7 @@ export default function OhuhuPaletteGenerator() {
   const handleSizeChange = (newSize: number) => {
     if (newSize >= 2 && newSize <= 7) {
       setSize(newSize);
-      generatePalette(newSize, style, palette, brand, true);
+      generatePalette(newSize, palette, brand, true);
     }
   };
 
@@ -421,7 +191,7 @@ export default function OhuhuPaletteGenerator() {
                       </span>
                     </button>
 
-                    <div className={`font-display font-bold text-sm sm:text-xl tracking-tight leading-none truncate w-full ${textColor} mt-0.5 sm:mt-1`}>
+                    <div className={`font-display font-bold text-xs sm:text-xl tracking-tight leading-none truncate w-full ${textColor} mt-0.5 sm:mt-1`}>
                       {'newName' in color.marker
                         ? (codeType === 'new' ? color.marker.newName : (color.marker as any).oldName)
                         : color.marker.code}
@@ -443,6 +213,17 @@ export default function OhuhuPaletteGenerator() {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
+                        toggleLock(color.id);
+                      }}
+                      className={`p-2 rounded-full backdrop-blur-md transition-all duration-200 ${iconColor} ${color.locked ? 'bg-white/30' : 'bg-white/10'} hover:bg-white/20`}
+                      aria-label={color.locked ? "Unlock color" : "Lock color"}
+                      title={color.locked ? "Unlock color" : "Lock color"}
+                    >
+                      {color.locked ? <Lock className="w-4 h-4 sm:w-5 sm:h-5" /> : <Unlock className="w-4 h-4 sm:w-5 sm:h-5" />}
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
                         setColorToEditId(color.id);
                         setIsManualModalOpen(true);
                       }}
@@ -451,17 +232,6 @@ export default function OhuhuPaletteGenerator() {
                       title="Change color manually"
                     >
                       <Palette className="w-4 h-4 sm:w-5 sm:h-5" />
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleLock(color.id);
-                      }}
-                      className={`p-2 rounded-full backdrop-blur-md bg-white/10 transition-all duration-200 ${iconColor} hover:bg-white/20`}
-                      aria-label={color.locked ? "Unlock color" : "Lock color"}
-                      title={color.locked ? "Unlock color" : "Lock color"}
-                    >
-                      {color.locked ? <Lock className="w-4 h-4 sm:w-5 sm:h-5" /> : <Unlock className="w-4 h-4 sm:w-5 sm:h-5" />}
                     </button>
                   </div>
                 </div>
@@ -511,29 +281,6 @@ export default function OhuhuPaletteGenerator() {
           {/* Dropdowns */}
           <div className="flex items-center gap-1.5 sm:gap-2 flex-1 sm:flex-none min-w-0 sm:justify-center">
             <Select
-              value={style}
-              onValueChange={(value) => {
-                setStyle(value as StyleType);
-                generatePalette(size, value as StyleType, palette, brand);
-              }}
-            >
-              <SelectTrigger className="flex-1 min-w-0 sm:flex-none sm:w-40 bg-zinc-100 border-0 text-zinc-900 font-medium px-3 py-1.5 sm:px-4 sm:py-2.5 rounded-full hover:bg-zinc-200/50 focus:ring-2 focus:ring-zinc-900/20 cursor-pointer text-xs sm:text-base h-auto shadow-none transition-all duration-300">
-                <SelectValue placeholder="Style" />
-              </SelectTrigger>
-              <SelectContent className="rounded-xl border-zinc-200 shadow-xl bg-white/95 backdrop-blur-xl duration-300 ease-out data-open:zoom-in-90 data-closed:zoom-out-90">
-                <SelectItem value="All style" className="rounded-lg cursor-pointer text-sm sm:text-base font-medium">All style</SelectItem>
-                <SelectItem value="pastel" className="rounded-lg cursor-pointer text-sm sm:text-base font-medium">Pastel</SelectItem>
-                <SelectItem value="warm" className="rounded-lg cursor-pointer text-sm sm:text-base font-medium">Warm</SelectItem>
-                <SelectItem value="neon" className="rounded-lg cursor-pointer text-sm sm:text-base font-medium">Neon</SelectItem>
-                <SelectItem value="vintage" className="rounded-lg cursor-pointer text-sm sm:text-base font-medium">Vintage</SelectItem>
-                <SelectItem value="summer" className="rounded-lg cursor-pointer text-sm sm:text-base font-medium">Summer</SelectItem>
-                <SelectItem value="winter" className="rounded-lg cursor-pointer text-sm sm:text-base font-medium">Winter</SelectItem>
-                <SelectItem value="cold" className="rounded-lg cursor-pointer text-sm sm:text-base font-medium">Cold</SelectItem>
-                <SelectItem value="autumn" className="rounded-lg cursor-pointer text-sm sm:text-base font-medium">Autumn</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select
               value={brand}
               onValueChange={(val) => {
                 const value = val as string;
@@ -542,7 +289,7 @@ export default function OhuhuPaletteGenerator() {
                 if (BRANDS[value]?.hasCodes) {
                   setIsDialogOpen(true);
                 }
-                generatePalette(size, style, palette, value);
+                generatePalette(size, palette, value);
               }}
             >
               <SelectTrigger className="flex-1 min-w-0 sm:flex-none sm:w-40 bg-zinc-100 border-0 text-zinc-900 font-medium px-3 py-1.5 sm:px-4 sm:py-2.5 rounded-full hover:bg-zinc-200/50 focus:ring-2 focus:ring-zinc-900/20 cursor-pointer text-xs sm:text-base h-auto shadow-none transition-all duration-300">
@@ -554,6 +301,86 @@ export default function OhuhuPaletteGenerator() {
                     {data.label}
                   </SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+
+            <Select
+              value={harmonyMethod}
+              onValueChange={(val) => {
+                const newMethod = val as HarmonyMethod;
+                setHarmonyMethod(newMethod);
+                // Auto-generate palette with new harmony method
+                generatePalette(size, palette, brand, false, newMethod);
+              }}
+            >
+              <SelectTrigger className="flex-1 min-w-0 sm:flex-none sm:w-48 bg-zinc-100 border-0 text-zinc-900 font-medium px-3 py-1.5 sm:px-4 sm:py-2.5 rounded-full hover:bg-zinc-200/50 focus:ring-2 focus:ring-zinc-900/20 cursor-pointer text-xs sm:text-base h-auto shadow-none transition-all duration-300">
+                <SelectValue placeholder="Harmony" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl border-zinc-200 shadow-xl bg-white/95 backdrop-blur-xl duration-300 ease-out data-open:zoom-in-90 data-closed:zoom-out-90">
+                <SelectItem value="random" className="rounded-lg cursor-pointer text-sm sm:text-base font-medium">
+                  Random
+                </SelectItem>
+                <SelectItem value="analogous" className="rounded-lg cursor-pointer text-sm sm:text-base font-medium">
+                  Analogous
+                </SelectItem>
+                <SelectItem value="complementary" className="rounded-lg cursor-pointer text-sm sm:text-base font-medium">
+                  Complementary
+                </SelectItem>
+                <SelectItem value="triadic" className="rounded-lg cursor-pointer text-sm sm:text-base font-medium">
+                  Triadic
+                </SelectItem>
+                <SelectItem value="monochromatic" className="rounded-lg cursor-pointer text-sm sm:text-base font-medium">
+                  Monochromatic
+                </SelectItem>
+                <SelectItem value="split-complementary" className="rounded-lg cursor-pointer text-sm sm:text-base font-medium">
+                  Split Complementary
+                </SelectItem>
+                <SelectItem value="tetradic" className="rounded-lg cursor-pointer text-sm sm:text-base font-medium">
+                  Tetradic
+                </SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select
+              value={paletteStyle}
+              onValueChange={(val) => {
+                const newStyle = val as PaletteStyle;
+                setPaletteStyle(newStyle);
+                // Auto-generate palette with new style
+                generatePalette(size, palette, brand, false, undefined, newStyle);
+              }}
+            >
+              <SelectTrigger className="flex-1 min-w-0 sm:flex-none sm:w-40 bg-zinc-100 border-0 text-zinc-900 font-medium px-3 py-1.5 sm:px-4 sm:py-2.5 rounded-full hover:bg-zinc-200/50 focus:ring-2 focus:ring-zinc-900/20 cursor-pointer text-xs sm:text-base h-auto shadow-none transition-all duration-300">
+                <SelectValue placeholder="Style" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl border-zinc-200 shadow-xl bg-white/95 backdrop-blur-xl duration-300 ease-out data-open:zoom-in-90 data-closed:zoom-out-90">
+                <SelectItem value="any" className="rounded-lg cursor-pointer text-sm sm:text-base font-medium">
+                  Any
+                </SelectItem>
+                <SelectItem value="pastel" className="rounded-lg cursor-pointer text-sm sm:text-base font-medium">
+                  Pastel
+                </SelectItem>
+                <SelectItem value="warm" className="rounded-lg cursor-pointer text-sm sm:text-base font-medium">
+                  Warm
+                </SelectItem>
+                <SelectItem value="neon" className="rounded-lg cursor-pointer text-sm sm:text-base font-medium">
+                  Neon
+                </SelectItem>
+                <SelectItem value="vintage" className="rounded-lg cursor-pointer text-sm sm:text-base font-medium">
+                  Vintage
+                </SelectItem>
+                <SelectItem value="cold" className="rounded-lg cursor-pointer text-sm sm:text-base font-medium">
+                  Cold
+                </SelectItem>
+                <SelectItem value="summer" className="rounded-lg cursor-pointer text-sm sm:text-base font-medium">
+                  Summer
+                </SelectItem>
+                <SelectItem value="winter" className="rounded-lg cursor-pointer text-sm sm:text-base font-medium">
+                  Winter
+                </SelectItem>
+                <SelectItem value="spring" className="rounded-lg cursor-pointer text-sm sm:text-base font-medium">
+                  Spring
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -583,7 +410,7 @@ export default function OhuhuPaletteGenerator() {
             </button>
             <DialogTitle className="text-xl sm:text-2xl font-bold tracking-tight text-zinc-900 pr-10 sm:pr-12">Select Color</DialogTitle>
             <DialogDescription className="text-zinc-500 font-medium pr-10 sm:pr-12">
-              Choose a specific {BRANDS[brand]?.label} marker. It will be locked automatically.
+              Choose a specific {BRANDS[brand]?.label} marker.
             </DialogDescription>
             <div className="pt-4">
               <input
@@ -625,7 +452,7 @@ export default function OhuhuPaletteGenerator() {
                     key={`${m.hex}-${i}`}
                     onClick={() => {
                       if (colorToEditId) {
-                        setPalette(prev => prev.map(p => p.id === colorToEditId ? { ...p, marker: m, locked: true } : p));
+                        setPalette(prev => prev.map(p => p.id === colorToEditId ? { ...p, marker: m } : p));
                       }
                       setIsManualModalOpen(false);
                       setSearchQuery('');
