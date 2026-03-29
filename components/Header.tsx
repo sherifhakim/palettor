@@ -16,7 +16,7 @@ export function Header() {
             color: 'transparent'
           }}
         >
-          MarkPalette
+          Gepalette
         </span>
       </div>
     </header>

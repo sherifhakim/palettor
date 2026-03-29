@@ -100,7 +100,7 @@ export function filterMarkersByStyle(markers: MarkerWithHue[], style: PaletteSty
         case 'warm':
           return (h >= 0 && h <= 60) || h >= 330;
         case 'neon':
-          return s > 0.8 && l > 0.5 && l < 0.7;
+          return s > 0.6 && l > 0.4 && l < 0.8;
         case 'vintage':
           return s < 0.6 && l > 0.3 && l < 0.7;
         case 'cold':
