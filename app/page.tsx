@@ -341,48 +341,6 @@ export default function OhuhuPaletteGenerator() {
               </SelectContent>
             </Select>
 
-            <Select
-              value={paletteStyle}
-              onValueChange={(val) => {
-                const newStyle = val as PaletteStyle;
-                setPaletteStyle(newStyle);
-                // Auto-generate palette with new style
-                generatePalette(size, palette, brand, false, undefined, newStyle);
-              }}
-            >
-              <SelectTrigger className="flex-1 min-w-0 sm:flex-none sm:w-40 bg-zinc-100 border-0 text-zinc-900 font-medium px-3 py-1.5 sm:px-4 sm:py-2.5 rounded-full hover:bg-zinc-200/50 focus:ring-2 focus:ring-zinc-900/20 cursor-pointer text-xs sm:text-base h-auto shadow-none transition-all duration-300">
-                <SelectValue placeholder="Style" />
-              </SelectTrigger>
-              <SelectContent className="rounded-xl border-zinc-200 shadow-xl bg-white/95 backdrop-blur-xl duration-300 ease-out data-open:zoom-in-90 data-closed:zoom-out-90">
-                <SelectItem value="any" className="rounded-lg cursor-pointer text-sm sm:text-base font-medium">
-                  Any
-                </SelectItem>
-                <SelectItem value="pastel" className="rounded-lg cursor-pointer text-sm sm:text-base font-medium">
-                  Pastel
-                </SelectItem>
-                <SelectItem value="warm" className="rounded-lg cursor-pointer text-sm sm:text-base font-medium">
-                  Warm
-                </SelectItem>
-                <SelectItem value="neon" className="rounded-lg cursor-pointer text-sm sm:text-base font-medium">
-                  Neon
-                </SelectItem>
-                <SelectItem value="vintage" className="rounded-lg cursor-pointer text-sm sm:text-base font-medium">
-                  Vintage
-                </SelectItem>
-                <SelectItem value="cold" className="rounded-lg cursor-pointer text-sm sm:text-base font-medium">
-                  Cold
-                </SelectItem>
-                <SelectItem value="summer" className="rounded-lg cursor-pointer text-sm sm:text-base font-medium">
-                  Summer
-                </SelectItem>
-                <SelectItem value="winter" className="rounded-lg cursor-pointer text-sm sm:text-base font-medium">
-                  Winter
-                </SelectItem>
-                <SelectItem value="spring" className="rounded-lg cursor-pointer text-sm sm:text-base font-medium">
-                  Spring
-                </SelectItem>
-              </SelectContent>
-            </Select>
           </div>
 
           {/* Generate Button */}
